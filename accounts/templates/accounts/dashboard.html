@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Tableau de bord</h2>
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Bienvenue, {{ user.get_full_name|default:user.email }}</h5>
+            <p class="card-text">Rôle: {{ user.get_role_display }}</p>
+            
+            <div class="mt-4">
+                {% if user.is_admin %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités d'administrateur:</h6>
+                        <p>- Gestion des comptes utilisateurs</p>
+                    </div>
+                    <a href="{% url 'user_list' %}" class="btn btn-primary">Gérer les utilisateurs</a>
+                    <a href="{% url 'user_create' 'user' %}" class="btn btn-success">Créer un utilisateur</a>
+                {% elif user.is_medecin %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités de médecin:</h6>
+                        <p>- Consultation et mise à jour des informations des patients</p>
+                    </div>
+                    <a href="{% url 'user_list' %}" class="btn btn-primary">Gérer les patients</a>
+                    <a href="{% url 'user_create' 'dossier_medical' %}" class="btn btn-primary">Gérer les Dossier medicaux</a>
+                {% elif user.is_radiologue %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités de radiologue:</h6>
+                        <p>- Accès aux données médicales liées à l'imagerie</p>
+                    </div>
+                    <a href="{% url 'user_list' %}" class="btn btn-primary">Voir les patients</a>
+                {% elif user.is_laborantin %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités de laborantin:</h6>
+                        <p>- Gestion et accès aux résultats d'analyses</p>
+                    </div>
+                    <a href="{% url 'user_list' %}" class="btn btn-primary">Voir les patients</a>
+                {% elif user.is_praticien %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités de praticien de santé:</h6>
+                        <p>- Consultation des informations des patients</p>
+                    </div>
+                    <a href="{% url 'user_list' %}" class="btn btn-primary">Voir les patients</a>
+                    <a href="{% url 'user_create' %}" class="btn btn-success">Ajouter un patient</a>
+                {% elif user.is_patient %}
+                    <div class="alert alert-info">
+                        <h6>Fonctionnalités de patient:</h6>
+                        <p>- Gestion de votre profil de santé</p>
+                    </div>
+                {% endif %}
+                <a href="{% url 'logout' %}" class="btn btn-danger">Déconnexion</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
