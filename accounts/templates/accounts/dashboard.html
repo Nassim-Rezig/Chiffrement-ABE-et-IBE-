@@ -20,9 +20,10 @@
                     <div class="alert alert-info">
                         <h6>Fonctionnalités de médecin:</h6>
                         <p>- Consultation et mise à jour des informations des patients</p>
+                        <p>- Gestion des dossiers médicaux des patients</p>
                     </div>
                     <a href="{% url 'user_list' %}" class="btn btn-primary">Gérer les patients</a>
-                    <a href="{% url 'user_create' 'dossier_medical' %}" class="btn btn-primary">Gérer les Dossier medicaux</a>
+                    <a href="{% url 'medical_record_list' %}" class="btn btn-primary">Gérer les dossiers médicaux</a>
                 {% elif user.is_radiologue %}
                     <div class="alert alert-info">
                         <h6>Fonctionnalités de radiologue:</h6>

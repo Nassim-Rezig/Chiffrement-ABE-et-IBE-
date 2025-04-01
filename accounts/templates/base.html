@@ -25,6 +25,11 @@
         <a class="nav-link" href="{% url 'user_list' %}">Utilisateurs</a>
     </li>
     {% endif %}
+    {% if user.is_medecin %}
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'medical_record_list' %}">Dossiers Médicaux</a>
+    </li>
+    {% endif %}
     <li class="nav-item">
         <a class="nav-link" href="{% url 'logout' %}">Déconnexion</a>
     </li>

@@ -1,15 +1,14 @@
-from django.shortcuts import render
-
-# Create your views here.
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.views.generic import CreateView, ListView,UpdateView
+from django.views.generic import CreateView, ListView, UpdateView, DetailView, DeleteView
 from django.urls import reverse_lazy
-from .forms import LaborantinForm, LoginForm, MedecinForm, PatientForm, RadiologueForm, UserCreationForm
-from .models import User
+from django.db import models
+from .forms import LaborantinForm, LoginForm, MedecinForm, MedicalRecordForm, PatientForm, RadiologueForm, UserCreationForm
+from .models import User, MedicalRecord, Patient, Consultation
 from django.contrib import messages
+from django.http import Http404, HttpResponseForbidden
 from .ibe_config import ibe_decrypt
 
 import json
@@ -251,7 +250,7 @@ class UserDetailView(UserPassesTestMixin, DetailView):
             if encrypted_insurance:
                 try:
                     
-                    insurance_number_decrypted = ibe_decrypt(encrypted_insurance, user_object.email)
+                    insurance_number_decrypted = ibe_decrypt(encrypted_insurance, self.request.user.email)
                 except Exception as e:
                     insurance_number_decrypted = f"Erreur lors du déchiffrement : {str(e)}"
 
@@ -340,3 +339,202 @@ class UserUpdateView(UserPassesTestMixin, UpdateView):
                     f"L'utilisateur {user.email} a été modifié avec succès."
                 )
             return super().form_valid(form)
+
+
+# Vues pour la gestion des dossiers médicaux
+class MedicalRecordListView(UserPassesTestMixin, ListView):
+    model = MedicalRecord
+    template_name = 'accounts/medical_record_list.html'
+    context_object_name = 'medical_records'
+    
+    def test_func(self):
+        # Seuls les médecins, les administrateurs et les praticiens peuvent voir la liste des dossiers médicaux
+        return self.request.user.is_admin or self.request.user.is_medecin or self.request.user.is_praticien
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Les médecins voient les dossiers qu'ils ont créés et ceux auxquels ils sont assignés
+        if self.request.user.is_medecin:
+            return queryset.filter(
+                models.Q(creator=self.request.user) | models.Q(assigned_to=self.request.user)
+            ).distinct()
+        
+        # Les administrateurs voient tous les dossiers
+        return queryset
+
+
+class MedicalRecordDetailView(UserPassesTestMixin, DetailView):
+    model = MedicalRecord
+    template_name = 'accounts/medical_record_detail.html'
+    context_object_name = 'record'
+    
+    def test_func(self):
+        record = self.get_object()
+        # Vérifier si l'utilisateur a le droit de voir ce dossier
+        if self.request.user.is_admin:
+            return True
+        if self.request.user == record.creator:
+            return True
+        if self.request.user in record.assigned_to.all():
+            return True
+        return False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        record = self.get_object()
+        
+        # Tenter de déchiffrer les données médicales
+        decrypted_data = None
+        try:
+            # Ici, vous devriez utiliser la fonction de déchiffrement ABE appropriée
+            # Cette partie dépend de votre implémentation du chiffrement ABE
+            # decrypted_data = abe_decrypt(record.encrypted_data, self.request.user)
+            decrypted_data = "Données médicales déchiffrées seraient affichées ici."
+        except Exception as e:
+            decrypted_data = None
+        
+        context['decrypted_data'] = decrypted_data
+        
+        # Récupérer les consultations associées au patient
+        context['consultations'] = Consultation.objects.filter(patient=record.patient)
+        
+        # Tenter de déchiffrer le numéro d'assurance du patient
+        insurance_number_decrypted = None
+        if record.patient.encrypted_insurance:
+            try:
+                insurance_number_decrypted = ibe_decrypt(record.patient.encrypted_insurance, record.patient.user.email)
+            except Exception as e:
+                insurance_number_decrypted = None
+        
+        context['insurance_number_decrypted'] = insurance_number_decrypted
+        
+        return context
+
+
+class MedicalRecordCreateView(UserPassesTestMixin, CreateView):
+    model = MedicalRecord
+    form_class = MedicalRecordForm
+    template_name = 'accounts/medical_record_form.html'
+    success_url = reverse_lazy('medical_record_list')
+    
+    def test_func(self):
+        # Seuls les médecins et les administrateurs peuvent créer des dossiers médicaux
+        return self.request.user.is_admin or self.request.user.is_medecin
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Récupérer tous les professionnels de santé pour l'assignation
+        context['professionals'] = User.objects.filter(
+            models.Q(role='MEDECIN') | models.Q(role='RADIOLOGUE') | 
+            models.Q(role='LABORANTIN') | models.Q(role='PRATICIEN')
+        )
+        return context
+    
+    def form_valid(self, form):
+        record = form.save(commit=False)
+        record.creator = self.request.user
+        
+        # Récupérer les données médicales à chiffrer
+        medical_data = self.request.POST.get('medical_data', '')
+        
+        # Ici, vous devriez utiliser la fonction de chiffrement ABE appropriée
+        # Cette partie dépend de votre implémentation du chiffrement ABE
+        # encrypted_data = abe_encrypt(medical_data, record.abe_policy)
+        # record.encrypted_data = encrypted_data
+        
+        # Pour l'exemple, nous stockons simplement les données en clair
+        # Dans une vraie implémentation, vous devriez les chiffrer
+        record.encrypted_data = medical_data.encode('utf-8')
+        
+        record.save()
+        
+        # Gérer les professionnels assignés
+        assigned_professionals = self.request.POST.getlist('assigned_to')
+        record.assigned_to.set(assigned_professionals)
+        
+        messages.success(self.request, "Le dossier médical a été créé avec succès.")
+        return super().form_valid(form)
+
+
+class MedicalRecordUpdateView(UserPassesTestMixin, UpdateView):
+    model = MedicalRecord
+    form_class = MedicalRecordForm
+    template_name = 'accounts/medical_record_form.html'
+    context_object_name = 'record'
+    
+    def test_func(self):
+        record = self.get_object()
+        # Vérifier si l'utilisateur a le droit de modifier ce dossier
+        if self.request.user.is_admin:
+            return True
+        if self.request.user == record.creator:
+            return True
+        return False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        record = self.get_object()
+        
+        # Récupérer tous les professionnels de santé pour l'assignation
+        context['professionals'] = User.objects.filter(
+            models.Q(role='MEDECIN') | models.Q(role='RADIOLOGUE') | 
+            models.Q(role='LABORANTIN') | models.Q(role='PRATICIEN')
+        )
+        
+        # Tenter de déchiffrer les données médicales pour les afficher dans le formulaire
+        try:
+            # Ici, vous devriez utiliser la fonction de déchiffrement ABE appropriée
+            # medical_data = abe_decrypt(record.encrypted_data, self.request.user)
+            medical_data = record.encrypted_data.decode('utf-8')  # Pour l'exemple
+            context['medical_data'] = medical_data
+        except Exception as e:
+            context['medical_data'] = ''
+            messages.error(self.request, "Impossible de déchiffrer les données médicales.")
+        
+        return context
+    
+    def form_valid(self, form):
+        record = form.save(commit=False)
+        
+        # Récupérer les données médicales à chiffrer
+        medical_data = self.request.POST.get('medical_data', '')
+        
+        # Ici, vous devriez utiliser la fonction de chiffrement ABE appropriée
+        # encrypted_data = abe_encrypt(medical_data, record.abe_policy)
+        # record.encrypted_data = encrypted_data
+        
+        # Pour l'exemple, nous stockons simplement les données en clair
+        record.encrypted_data = medical_data.encode('utf-8')
+        
+        record.save()
+        
+        # Gérer les professionnels assignés
+        assigned_professionals = self.request.POST.getlist('assigned_to')
+        record.assigned_to.set(assigned_professionals)
+        
+        messages.success(self.request, "Le dossier médical a été mis à jour avec succès.")
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse_lazy('medical_record_detail', kwargs={'pk': self.object.pk})
+
+
+class MedicalRecordDeleteView(UserPassesTestMixin, DeleteView):
+    model = MedicalRecord
+    template_name = 'accounts/medical_record_confirm_delete.html'
+    success_url = reverse_lazy('medical_record_list')
+    
+    def test_func(self):
+        record = self.get_object()
+        # Vérifier si l'utilisateur a le droit de supprimer ce dossier
+        if self.request.user.is_admin:
+            return True
+        if self.request.user == record.creator:
+            return True
+        return False
+    
+    def delete(self, request, *args, **kwargs):
+        record = self.get_object()
+        messages.success(request, f"Le dossier médical de {record.patient.user.get_full_name()} a été supprimé avec succès.")
+        return super().delete(request, *args, **kwargs)

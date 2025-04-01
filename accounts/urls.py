@@ -12,4 +12,11 @@ urlpatterns = [
     path('users/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user_delete'),
     path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
     path('user/<int:pk>/edit/', views.UserUpdateView.as_view(), name='user_update'),
+    
+    # Routes pour la gestion des dossiers médicaux
+    path('medical-records/', views.MedicalRecordListView.as_view(), name='medical_record_list'),
+    path('medical-records/create/', views.MedicalRecordCreateView.as_view(), name='medical_record_create'),
+    path('medical-records/<int:pk>/', views.MedicalRecordDetailView.as_view(), name='medical_record_detail'),
+    path('medical-records/<int:pk>/update/', views.MedicalRecordUpdateView.as_view(), name='medical_record_update'),
+    path('medical-records/<int:pk>/delete/', views.MedicalRecordDeleteView.as_view(), name='medical_record_delete'),
 ]
