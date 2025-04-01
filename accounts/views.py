@@ -251,7 +251,8 @@ class UserDetailView(UserPassesTestMixin, DetailView):
             if encrypted_insurance:
                 try:
                     
-                    insurance_number_decrypted = ibe_decrypt(encrypted_insurance, user_object.email)
+                    insurance_number_decrypted = ibe_decrypt(encrypted_insurance, self.request.user.email)
+                    print(self.request.user.email)
                 except Exception as e:
                     insurance_number_decrypted = f"Erreur lors du déchiffrement : {str(e)}"
 
