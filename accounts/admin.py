@@ -16,7 +16,7 @@ class PatientAdmin(admin.ModelAdmin):
 
     
     search_fields = ['user__email']
-    fields = ('user', 'date_of_birth', 'blood_type', 'abe_policy', 'encrypted_insurance')
+    fields = ('user', 'date_of_birth', 'blood_type', 'ibe_policy', 'encrypted_insurance')
     readonly_fields = ('encrypted_insurance',)
 
     def display_encrypted_insurance(self, obj):

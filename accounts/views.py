@@ -10,8 +10,7 @@ from django.urls import reverse_lazy
 from .forms import LaborantinForm, LoginForm, MedecinForm, PatientForm, RadiologueForm, UserCreationForm
 from .models import User
 from django.contrib import messages
-from .real_abe_cipher import decrypt_attribute 
-from .config_abe import ibe_decrypt
+from .ibe_config import ibe_decrypt
 
 import json
 
@@ -205,17 +204,19 @@ from .models import User, Patient, Medecin, Radiologue, Laborantin
 class UserDetailView(UserPassesTestMixin, DetailView):
     model = User
     template_name = 'accounts/user_detail.html'
-    context_object_name = 'user_object'  # Pour éviter la confusion avec request.user
+    context_object_name = 'user_object'  # Évite la confusion avec request.user
+    
 
     def test_func(self):
         user_to_view = self.get_object()
+        print(f"Utilisateur connecté: {self.request.user}, Profil demandé: {user_to_view}")
         # Autorisations : admin, utilisateur lui-même ou professionnels de santé
         if self.request.user.is_admin:
             return True
         if self.request.user == user_to_view:
             return True
         if (self.request.user.is_medecin or self.request.user.is_praticien or
-            self.request.user.is_radiologue or self.request.user.is_laborantin):
+            self.request.user.is_radiologue or self.request.user.is_laborantin ):
             return True
         return False
 
@@ -236,6 +237,8 @@ class UserDetailView(UserPassesTestMixin, DetailView):
         if self.request.user.is_laborantin:
             user_attributes.append("LABORANTIN")
 
+        context['user_attributes'] = user_attributes
+
         # Si l'utilisateur affiché est un patient avec un profil patient, tenter de déchiffrer l'assurance
         if user_object.is_patient and hasattr(user_object, 'patient_profile'):
             patient_profile = user_object.patient_profile
@@ -243,18 +246,14 @@ class UserDetailView(UserPassesTestMixin, DetailView):
 
             encrypted_insurance = patient_profile.encrypted_insurance
 
-            if encrypted_insurance:
-                print("Contenu brut de encrypted_insurance:", encrypted_insurance)
-            else:
-                print("Aucune donnée d'assurance chiffrée trouvée.")
+            insurance_number_decrypted = None
 
-            try:
-                # Ici, nous utilisons l'email de l'utilisateur comme identité
-                insurance_number_decrypted = ibe_decrypt(encrypted_insurance, user_object.email)
-                print("Déchiffrement réussi, résultat :", insurance_number_decrypted)
-            except Exception as e:
-                insurance_number_decrypted = f"Erreur lors du déchiffrement : {str(e)}"
-                print(insurance_number_decrypted)
+            if encrypted_insurance:
+                try:
+                    
+                    insurance_number_decrypted = ibe_decrypt(encrypted_insurance, user_object.email)
+                except Exception as e:
+                    insurance_number_decrypted = f"Erreur lors du déchiffrement : {str(e)}"
 
             context['insurance_number_decrypted'] = insurance_number_decrypted
 

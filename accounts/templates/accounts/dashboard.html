@@ -46,9 +46,12 @@
                     <div class="alert alert-info">
                         <h6>Fonctionnalités de patient:</h6>
                         <p>- Gestion de votre profil de santé</p>
+                        <a href="{% url 'user_detail' user.id %}" class="btn btn-primary">Voir mon profil</a>
                     </div>
                 {% endif %}
                 <a href="{% url 'logout' %}" class="btn btn-danger">Déconnexion</a>
+                
+
             </div>
         </div>
     </div>

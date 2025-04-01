@@ -4,22 +4,7 @@ from .models import ABEKey, Consultation, Laborantin, Medecin, MedicalRecord, Pr
 import base64
 import json
 import os
-
-from .config_abe import ibe_encrypt
-from charm.toolbox.pairinggroup import PairingGroup
-from charm.schemes.abenc.abenc_bsw07 import CPabe_BSW07
-from charm.core.engine.util import objectToBytes, bytesToObject
-import hashlib
-from datetime import datetime
-from .config_abe import ibe_encrypt, serialize_ciphertext, group
-
-
-
-
-
-
-
-
+from .ibe_config import ibe_encrypt,serialize_ciphertext
 
 
 
@@ -102,21 +87,33 @@ class PatientForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
     
-    def save_patient(self, commit=True):
+    def save(self, commit=True):
         patient = super(PatientForm, self).save(commit=False)
         insurance_number = self.cleaned_data.get('insurance_number')
-        # Ici, on utilise l'email de l'utilisateur connecté
+        
+        # On utilise l'email de l'utilisateur connecté comme identité IBE
         email = self.user.email if self.user else None
+        print("numero d'assurance: ",insurance_number)
+        print("email: ",email)
+
         if insurance_number and email:
             ibe_ciphertext = ibe_encrypt(insurance_number, email)
-            ibe_ciphertext_serialized = serialize_ciphertext(ibe_ciphertext)
+            ibe_ciphertext_serialized = ibe_ciphertext
+            print("we are here 1")
+
             # Stocker le ciphertext sous forme de JSON encodé en UTF-8
             patient.encrypted_insurance = json.dumps(ibe_ciphertext_serialized).encode('utf-8')
             patient.ibe_policy = f'email:{email}'
+            print("we are here 2")
+
         # Assigner l'utilisateur au patient
         if self.user:
             patient.user = self.user
+            print("we are here 3")
+
+        
         patient.save()
+        print("we are here 4")
         return patient
 
 
